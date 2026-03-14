@@ -1,0 +1,10 @@
+{
+  "rarity": "LEGENDARY",
+  "base_color": [0.95, 0.95, 0.95],
+  "metalness": 0.0,
+  "roughness": 0.08,
+  "iridescence": 1.0,
+  "iridescence_ior": 2.0,
+  "sheen_color": [1.0, 0.8, 0.6],
+  "sheen_roughness": 0.3
+}

@@ -1,0 +1,34 @@
+{
+  "mode": "fullscreen",
+  "ibl": {
+    "enabled": true,
+    "intensity": 30000
+  },
+  "directional": {
+    "enabled": true,
+    "key": {
+      "intensity": 110000,
+      "color": [1.0, 0.95, 0.9],
+      "direction": [-0.5, -1.0, -0.5]
+    },
+    "fill": {
+      "intensity": 50000,
+      "color": [0.9, 0.95, 1.0],
+      "direction": [0.5, -0.5, 0.5]
+    }
+  },
+  "accent": {
+    "enabled": true,
+    "EPIC": {
+      "type": "rim",
+      "color": [0.2, 0.4, 1.0],
+      "intensity": 80000,
+      "pulse_period_s": 3.0
+    },
+    "LEGENDARY": {
+      "type": "rainbow_orbit",
+      "intensity": 100000,
+      "orbit_period_s": 5.0
+    }
+  }
+}

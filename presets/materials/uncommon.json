@@ -1,0 +1,8 @@
+{
+  "rarity": "UNCOMMON",
+  "base_color": [0.910, 0.910, 0.910],
+  "metalness": 0.92,
+  "roughness": 0.22,
+  "emissive": [0.200, 0.200, 0.200],
+  "reflectance": 0.5
+}

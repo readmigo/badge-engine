@@ -1,0 +1,13 @@
+{
+  "mode": "embedded",
+  "ibl": {
+    "enabled": true,
+    "intensity": 30000
+  },
+  "directional": {
+    "enabled": false
+  },
+  "accent": {
+    "enabled": false
+  }
+}
