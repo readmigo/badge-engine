@@ -68,6 +68,8 @@ private:
     filament::gltfio::AssetLoader* asset_loader_ = nullptr;
     filament::gltfio::MaterialProvider* material_provider_ = nullptr;
     filament::gltfio::ResourceLoader* resource_loader_ = nullptr;
+    filament::gltfio::TextureProvider* stb_provider_ = nullptr;
+    filament::gltfio::TextureProvider* ktx2_provider_ = nullptr;
     filament::gltfio::FilamentAsset* asset_ = nullptr;
 
     filament::IndirectLight* indirect_light_ = nullptr;

@@ -64,6 +64,14 @@ bool SceneManager::init(Renderer* renderer) {
     res_config.normalizeSkinningWeights = true;
     resource_loader_ = new filament::gltfio::ResourceLoader(res_config);
 
+    // Register texture providers for PNG/JPEG decoding in GLB files
+    stb_provider_ = filament::gltfio::createStbProvider(engine);
+    resource_loader_->addTextureProvider("image/png", stb_provider_);
+    resource_loader_->addTextureProvider("image/jpeg", stb_provider_);
+
+    ktx2_provider_ = filament::gltfio::createKtx2Provider(engine);
+    resource_loader_->addTextureProvider("image/ktx2", ktx2_provider_);
+
     // Allocate light entity storage
     light_entities_ = new utils::Entity[MAX_LIGHTS];
     light_count_ = 0;
@@ -97,6 +105,10 @@ void SceneManager::destroy() {
         delete resource_loader_;
         resource_loader_ = nullptr;
     }
+    delete stb_provider_;
+    stb_provider_ = nullptr;
+    delete ktx2_provider_;
+    ktx2_provider_ = nullptr;
     if (asset_loader_) {
         filament::gltfio::AssetLoader::destroy(&asset_loader_);
     }
@@ -338,13 +350,14 @@ bool SceneManager::setupIBL(const std::string& ibl_ktx_path, float intensity) {
 bool SceneManager::setupDefaultIBL(float intensity) {
     if (!renderer_) return false;
 
-    // Try loading KTX IBL from ibl_directory_ first
-    if (!ibl_directory_.empty()) {
-        std::string ibl_path = ibl_directory_ + "/default/default_ibl.ktx";
-        if (setupIBL(ibl_path, intensity)) {
-            return true;
-        }
-    }
+    // Skip KTX IBL — use procedural reflections cubemap for now
+    // TODO: restore KTX loading after fixing cubemap brightness
+    // if (!ibl_directory_.empty()) {
+    //     std::string ibl_path = ibl_directory_ + "/default/default_ibl.ktx";
+    //     if (setupIBL(ibl_path, intensity)) {
+    //         return true;
+    //     }
+    // }
 
     auto* engine = renderer_->filamentEngine();
     auto* scene = renderer_->filamentScene();
@@ -359,7 +372,75 @@ bool SceneManager::setupDefaultIBL(float intensity) {
         skybox_ = nullptr;
     }
 
-    // Fallback: SH-only IBL from photo_studio_loft_hall HDR (no reflections cubemap)
+    // Fallback: Generate a procedural reflections cubemap so metallic surfaces
+    // can reflect something (not just black). Each face is a gradient from
+    // warm highlight to cool shadow, simulating a studio environment.
+    const uint32_t cubemap_size = 64;
+
+    // Create cubemap texture
+    ibl_texture_ = filament::Texture::Builder()
+        .width(cubemap_size)
+        .height(cubemap_size)
+        .levels(1)
+        .sampler(filament::Texture::Sampler::SAMPLER_CUBEMAP)
+        .format(filament::Texture::InternalFormat::RGBA16F)
+        .build(*engine);
+
+    if (ibl_texture_) {
+        // Generate 6 faces with HDR studio lighting (float16 for proper PBR reflections)
+        struct FaceColor { float r, g, b; };
+        // HDR values > 1.0 for bright studio environment
+        FaceColor face_colors[6] = {
+            {2.5f, 2.3f, 2.0f},   // +X: warm right
+            {1.2f, 1.3f, 1.6f},   // -X: cool left
+            {3.0f, 2.9f, 2.7f},   // +Y: bright top (key light)
+            {0.6f, 0.6f, 0.8f},   // -Y: floor bounce
+            {2.0f, 1.9f, 1.8f},   // +Z: neutral front
+            {1.0f, 1.1f, 1.4f},   // -Z: cool back
+        };
+
+        // float16 helper: convert float32 to float16 (IEEE 754 half-precision)
+        auto f32_to_f16 = [](float value) -> uint16_t {
+            uint32_t f = *reinterpret_cast<uint32_t*>(&value);
+            uint32_t sign = (f >> 16) & 0x8000;
+            int32_t exp = ((f >> 23) & 0xFF) - 127 + 15;
+            uint32_t frac = (f >> 13) & 0x3FF;
+            if (exp <= 0) return static_cast<uint16_t>(sign);
+            if (exp >= 31) return static_cast<uint16_t>(sign | 0x7C00);
+            return static_cast<uint16_t>(sign | (exp << 10) | frac);
+        };
+
+        const size_t face_pixels = cubemap_size * cubemap_size;
+        const size_t face_size_f16 = face_pixels * 4 * sizeof(uint16_t); // RGBA16F
+        const size_t total_bytes_f16 = face_size_f16 * 6;
+        auto* pixels = new uint16_t[face_pixels * 4 * 6];
+
+        for (int face = 0; face < 6; face++) {
+            auto& fc = face_colors[face];
+            size_t face_offset = face * face_pixels * 4;
+            for (uint32_t y = 0; y < cubemap_size; y++) {
+                float grad = 1.0f - 0.3f * (static_cast<float>(y) / cubemap_size);
+                for (uint32_t x = 0; x < cubemap_size; x++) {
+                    size_t idx = face_offset + (y * cubemap_size + x) * 4;
+                    pixels[idx + 0] = f32_to_f16(fc.r * grad);
+                    pixels[idx + 1] = f32_to_f16(fc.g * grad);
+                    pixels[idx + 2] = f32_to_f16(fc.b * grad);
+                    pixels[idx + 3] = f32_to_f16(1.0f);
+                }
+            }
+        }
+
+        filament::Texture::FaceOffsets offsets(face_size_f16);
+        filament::Texture::PixelBufferDescriptor pbd(
+            pixels, total_bytes_f16,
+            filament::Texture::Format::RGBA,
+            filament::Texture::Type::HALF,
+            [](void* buf, size_t, void*) { delete[] static_cast<uint16_t*>(buf); }
+        );
+        ibl_texture_->setImage(*engine, 0, std::move(pbd), offsets);
+    }
+
+    // SH bands from photo_studio_loft_hall HDR
     filament::math::float3 sh_bands[9] = {
         { 0.9119f,  0.8576f,  0.8153f},
         { 0.1176f,  0.2119f,  0.2394f},
@@ -372,17 +453,22 @@ bool SceneManager::setupDefaultIBL(float intensity) {
         { 0.1200f,  0.1675f,  0.1887f},
     };
 
-    indirect_light_ = filament::IndirectLight::Builder()
+    auto ibl_builder = filament::IndirectLight::Builder()
         .irradiance(3, sh_bands)
-        .intensity(intensity)
-        .build(*engine);
+        .intensity(intensity);
+
+    if (ibl_texture_) {
+        ibl_builder.reflections(ibl_texture_);
+    }
+
+    indirect_light_ = ibl_builder.build(*engine);
 
     if (indirect_light_ && scene) {
         scene->setIndirectLight(indirect_light_);
     }
 
     skybox_ = filament::Skybox::Builder()
-        .color({0.0f, 0.0f, 0.0f, 0.0f})
+        .color({0.05f, 0.05f, 0.07f, 1.0f})
         .build(*engine);
 
     if (skybox_ && scene) {
