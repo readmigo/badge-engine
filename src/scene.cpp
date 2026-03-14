@@ -324,39 +324,12 @@ bool SceneManager::setupIBL(const std::string& ibl_ktx_path, float intensity) {
         scene->setIndirectLight(indirect_light_);
     }
 
-    // Try loading skybox KTX if available (same directory, _skybox.ktx)
-    std::string skybox_ktx_path = ibl_ktx_path;
-    auto pos = skybox_ktx_path.rfind("_ibl.ktx");
-    if (pos != std::string::npos) {
-        skybox_ktx_path.replace(pos, 8, "_skybox.ktx");
-        std::ifstream sky_file(skybox_ktx_path, std::ios::binary | std::ios::ate);
-        if (sky_file.is_open()) {
-            auto sky_size = sky_file.tellg();
-            sky_file.seekg(0, std::ios::beg);
-            std::vector<uint8_t> sky_buffer(static_cast<size_t>(sky_size));
-            if (sky_file.read(reinterpret_cast<char*>(sky_buffer.data()), sky_size)) {
-                auto* sky_bundle = new image::Ktx1Bundle(sky_buffer.data(), static_cast<uint32_t>(sky_buffer.size()));
-                auto* sky_texture = ktxreader::Ktx1Reader::createTexture(engine, sky_bundle, false);
-                if (sky_texture) {
-                    skybox_ = filament::Skybox::Builder()
-                        .environment(sky_texture)
-                        .build(*engine);
-                    if (skybox_ && scene) {
-                        scene->setSkybox(skybox_);
-                    }
-                }
-            }
-        }
-    }
-
-    // If no skybox loaded, use transparent black
-    if (!skybox_) {
-        skybox_ = filament::Skybox::Builder()
-            .color({0.0f, 0.0f, 0.0f, 0.0f})
-            .build(*engine);
-        if (skybox_ && scene) {
-            scene->setSkybox(skybox_);
-        }
+    // Transparent skybox — badges float over app UI, not over an environment
+    skybox_ = filament::Skybox::Builder()
+        .color({0.05f, 0.05f, 0.07f, 1.0f})  // near-black with slight blue tint
+        .build(*engine);
+    if (skybox_ && scene) {
+        scene->setSkybox(skybox_);
     }
 
     return true;
@@ -386,17 +359,17 @@ bool SceneManager::setupDefaultIBL(float intensity) {
         skybox_ = nullptr;
     }
 
-    // Fallback: SH-only IBL from the studio HDR (no reflections cubemap)
+    // Fallback: SH-only IBL from photo_studio_loft_hall HDR (no reflections cubemap)
     filament::math::float3 sh_bands[9] = {
-        { 0.8127f,  0.8345f,  0.9214f},
-        { 0.0378f,  0.0416f,  0.0518f},
-        {-0.0380f, -0.0578f, -0.0660f},
-        {-0.2837f, -0.2927f, -0.3268f},
-        {-0.2955f, -0.3032f, -0.3356f},
-        {-0.0049f, -0.0129f, -0.0079f},
-        { 0.0390f,  0.0415f,  0.0477f},
-        {-0.0230f, -0.0073f, -0.0377f},
-        { 0.1403f,  0.1439f,  0.1594f},
+        { 0.9119f,  0.8576f,  0.8153f},
+        { 0.1176f,  0.2119f,  0.2394f},
+        { 0.6107f,  0.7482f,  0.8500f},
+        {-0.3165f, -0.3699f, -0.4387f},
+        {-0.0538f, -0.1098f, -0.1389f},
+        { 0.2910f,  0.2958f,  0.3277f},
+        { 0.0516f,  0.0700f,  0.0834f},
+        {-0.1461f, -0.2359f, -0.3176f},
+        { 0.1200f,  0.1675f,  0.1887f},
     };
 
     indirect_light_ = filament::IndirectLight::Builder()
