@@ -39,6 +39,10 @@ void badge_engine_on_touch(BadgeEngine* engine, const BadgeTouchEvent* event) {
     if (engine && event) reinterpret_cast<badge::Engine*>(engine)->onTouch(*event);
 }
 
+void badge_engine_set_orientation(BadgeEngine* engine, float rx, float ry, float rz, float scale) {
+    if (engine) reinterpret_cast<badge::Engine*>(engine)->setOrientation(rx, ry, rz, scale);
+}
+
 void badge_engine_play_ceremony(BadgeEngine* engine, BadgeCeremonyType type) {
     if (engine) reinterpret_cast<badge::Engine*>(engine)->playCeremony(type);
 }

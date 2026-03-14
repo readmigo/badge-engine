@@ -201,6 +201,14 @@ void Engine::onTouch(const BadgeTouchEvent& event) {
     }
 }
 
+void Engine::setOrientation(float rx, float ry, float rz, float scale) {
+    orientation_override_ = true;
+    override_rx_ = rx;
+    override_ry_ = ry;
+    override_rz_ = rz;
+    override_scale_ = scale;
+}
+
 void Engine::playCeremony(BadgeCeremonyType type) {
     if (!badge_loaded_) return;
 
@@ -256,6 +264,16 @@ void Engine::renderFrame() {
             BadgeEvent event = {BADGE_EVENT_CEREMONY_DONE, 0, nullptr};
             emitEvent(event);
         }
+    } else if (orientation_override_) {
+#ifdef BADGE_ENGINE_HAS_FILAMENT
+        // Direct orientation control
+        if (scene_ && scene_->hasModel()) {
+            scene_->setTransform(
+                {override_scale_, override_scale_, override_scale_},
+                override_rx_, override_ry_, override_rz_
+            );
+        }
+#endif
     } else {
 #ifdef BADGE_ENGINE_HAS_FILAMENT
         // Apply interaction state to scene

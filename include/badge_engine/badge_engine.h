@@ -40,6 +40,9 @@ void badge_engine_on_touch(BadgeEngine* engine, const BadgeTouchEvent* event);
 /* Ceremony */
 void badge_engine_play_ceremony(BadgeEngine* engine, BadgeCeremonyType type);
 
+/* Direct orientation control -- rotation angles in radians, scale uniform */
+void badge_engine_set_orientation(BadgeEngine* engine, float rx, float ry, float rz, float scale);
+
 /* Render -- call once per frame */
 void badge_engine_render_frame(BadgeEngine* engine);
 

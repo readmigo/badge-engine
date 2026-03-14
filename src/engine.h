@@ -32,6 +32,7 @@ public:
     void updateGyro(float x, float y, float z);
     void onTouch(const BadgeTouchEvent& event);
     void playCeremony(BadgeCeremonyType type);
+    void setOrientation(float rx, float ry, float rz, float scale);
     void renderFrame();
     int snapshot(uint8_t* buffer, uint32_t width, uint32_t height);
     void setCallback(BadgeEventCallback callback, void* user_data);
@@ -47,6 +48,8 @@ private:
     void* callback_user_data_ = nullptr;
     bool surface_ready_ = false;
     bool badge_loaded_ = false;
+    bool orientation_override_ = false;
+    float override_rx_ = 0, override_ry_ = 0, override_rz_ = 0, override_scale_ = 1.0f;
 
 #ifdef BADGE_ENGINE_HAS_FILAMENT
     std::unique_ptr<Renderer> renderer_;

@@ -19,6 +19,7 @@
 
 #include <cstdio>
 #include <cstdlib>
+#include <cmath>
 
 static void event_callback(const BadgeEvent* event, void* user_data) {
     switch (event->type) {
@@ -154,8 +155,12 @@ int main(int argc, char* argv[]) {
     bool running = true;
     bool is_fullscreen_mode = true;
     bool mouse_down = false;
+    bool auto_rotate = true;
+    float auto_rotate_angle = 0.0f;
+    const float AUTO_ROTATE_SPEED = 0.8f; // radians per second
+    Uint32 last_ticks = SDL_GetTicks();
 
-    printf("Rendering... (Press ESC to quit, Space for ceremony)\n");
+    printf("Rendering... (Press ESC to quit, Space for ceremony, R to toggle auto-rotate)\n");
 
     while (running) {
         SDL_Event event;
@@ -171,6 +176,9 @@ int main(int argc, char* argv[]) {
                     } else if (event.key.keysym.sym == SDLK_SPACE) {
                         printf("Playing ceremony...\n");
                         badge_engine_play_ceremony(engine, BADGE_CEREMONY_UNLOCK);
+                    } else if (event.key.keysym.sym == SDLK_r) {
+                        auto_rotate = !auto_rotate;
+                        printf("Auto-rotate: %s\n", auto_rotate ? "ON" : "OFF");
                     } else if (event.key.keysym.sym == SDLK_f) {
                         is_fullscreen_mode = !is_fullscreen_mode;
                         badge_engine_set_render_mode(engine,
@@ -261,6 +269,34 @@ int main(int argc, char* argv[]) {
                             static_cast<uint32_t>(drawable_h));
                     }
                     break;
+            }
+        }
+
+        // Auto-rotate: Lissajous multi-axis rotation
+        Uint32 now_ticks = SDL_GetTicks();
+        float dt = (now_ticks - last_ticks) / 1000.0f;
+        last_ticks = now_ticks;
+
+        if (auto_rotate && !mouse_down) {
+            auto_rotate_angle += dt;
+
+            // Lissajous curves with different frequencies for each axis
+            // Creates a tumbling motion that exposes all faces and angles
+            float t = auto_rotate_angle;
+            float rx = 0.4f * sinf(t * 0.7f);                    // slow X tilt
+            float ry = t * 0.6f + 0.3f * sinf(t * 0.3f);         // continuous Y spin + wobble
+            float rz = 0.25f * sinf(t * 0.5f + 1.0f);            // gentle Z roll
+            // Add diagonal axis contribution via combined terms
+            rx += 0.15f * sinf(t * 1.1f + 2.0f);                 // XY diagonal
+            rz += 0.1f * cosf(t * 0.9f + 0.5f);                  // ZX diagonal
+
+            badge_engine_set_orientation(engine, rx, ry, rz, 1.0f);
+
+            // Print rotation info every ~1 second
+            static int frame_count = 0;
+            if (++frame_count % 60 == 0) {
+                printf("[rotate] X:%.1f° Y:%.1f° Z:%.1f°\n",
+                    rx * 57.2958f, fmodf(ry * 57.2958f, 360.0f), rz * 57.2958f);
             }
         }
 
