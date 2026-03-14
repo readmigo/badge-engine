@@ -26,6 +26,10 @@
 
 #include <gltfio/materials/uberarchive.h>
 
+#include <ktxreader/Ktx1Reader.h>
+#include <image/Ktx1Bundle.h>
+#include <filament/Texture.h>
+
 #include <fstream>
 #include <vector>
 #include <cmath>
@@ -79,6 +83,10 @@ void SceneManager::destroy() {
     if (indirect_light_ && engine) {
         engine->destroy(indirect_light_);
         indirect_light_ = nullptr;
+    }
+    if (ibl_texture_ && engine) {
+        engine->destroy(ibl_texture_);
+        ibl_texture_ = nullptr;
     }
     if (skybox_ && engine) {
         engine->destroy(skybox_);
@@ -220,31 +228,150 @@ void SceneManager::applyMaterial(const MaterialParams& params) {
             auto* mi = rm.getMaterialInstanceAt(ri, p);
             if (!mi) continue;
 
-            mi->setParameter("baseColor", filament::math::float3{
-                params.base_color[0], params.base_color[1], params.base_color[2]
-            });
-            mi->setParameter("metallic", params.metalness);
-            mi->setParameter("roughness", params.roughness);
-            mi->setParameter("reflectance", params.reflectance);
+            // GLB models loaded via gltfio ubershader use baseColorFactor (float4)
+            // rather than baseColor (float3). Try both names safely.
+            try {
+                mi->setParameter("baseColorFactor", filament::math::float4{
+                    params.base_color[0], params.base_color[1], params.base_color[2], 1.0f
+                });
+            } catch (...) {
+                try {
+                    mi->setParameter("baseColor", filament::math::float3{
+                        params.base_color[0], params.base_color[1], params.base_color[2]
+                    });
+                } catch (...) {}
+            }
+
+            try { mi->setParameter("metallicFactor", params.metalness); } catch (...) {
+                try { mi->setParameter("metallic", params.metalness); } catch (...) {}
+            }
+            try { mi->setParameter("roughnessFactor", params.roughness); } catch (...) {
+                try { mi->setParameter("roughness", params.roughness); } catch (...) {}
+            }
+            try { mi->setParameter("reflectance", params.reflectance); } catch (...) {}
 
             if (params.emissive[0] > 0 || params.emissive[1] > 0 || params.emissive[2] > 0) {
-                mi->setParameter("emissive", filament::math::float4{
-                    params.emissive[0], params.emissive[1], params.emissive[2], 1.0f
-                });
+                try {
+                    mi->setParameter("emissiveFactor", filament::math::float4{
+                        params.emissive[0], params.emissive[1], params.emissive[2], 1.0f
+                    });
+                } catch (...) {
+                    try {
+                        mi->setParameter("emissive", filament::math::float4{
+                            params.emissive[0], params.emissive[1], params.emissive[2], 1.0f
+                        });
+                    } catch (...) {}
+                }
             }
         }
     }
 }
 
-bool SceneManager::setupIBL(const std::string& ibl_path, float intensity) {
+bool SceneManager::setupIBL(const std::string& ibl_ktx_path, float intensity) {
     if (!renderer_) return false;
-    // IBL from KTX file would be loaded here
-    // For now, use the default IBL setup
-    return setupDefaultIBL(intensity);
+
+    auto* engine = renderer_->filamentEngine();
+    auto* scene = renderer_->filamentScene();
+
+    // Clean up existing
+    if (indirect_light_) {
+        engine->destroy(indirect_light_);
+        indirect_light_ = nullptr;
+    }
+    if (ibl_texture_) {
+        engine->destroy(ibl_texture_);
+        ibl_texture_ = nullptr;
+    }
+    if (skybox_) {
+        engine->destroy(skybox_);
+        skybox_ = nullptr;
+    }
+
+    // Read KTX file
+    std::ifstream file(ibl_ktx_path, std::ios::binary | std::ios::ate);
+    if (!file.is_open()) return false;
+
+    auto size = file.tellg();
+    file.seekg(0, std::ios::beg);
+    std::vector<uint8_t> buffer(static_cast<size_t>(size));
+    if (!file.read(reinterpret_cast<char*>(buffer.data()), size)) return false;
+
+    // Parse KTX bundle
+    auto* ibl_bundle = new image::Ktx1Bundle(buffer.data(), static_cast<uint32_t>(buffer.size()));
+
+    // Create texture from KTX (takes ownership of bundle)
+    ibl_texture_ = ktxreader::Ktx1Reader::createTexture(engine, ibl_bundle, false);
+    if (!ibl_texture_) return false;
+
+    // Extract spherical harmonics from the KTX metadata
+    filament::math::float3 sh_bands[9];
+    // Re-read to get SH (the bundle was consumed by createTexture)
+    image::Ktx1Bundle sh_bundle(buffer.data(), static_cast<uint32_t>(buffer.size()));
+    bool has_sh = sh_bundle.getSphericalHarmonics(sh_bands);
+
+    // Build indirect light with reflections cubemap
+    auto builder = filament::IndirectLight::Builder()
+        .reflections(ibl_texture_)
+        .intensity(intensity);
+
+    if (has_sh) {
+        builder.irradiance(3, sh_bands);
+    }
+
+    indirect_light_ = builder.build(*engine);
+
+    if (indirect_light_ && scene) {
+        scene->setIndirectLight(indirect_light_);
+    }
+
+    // Try loading skybox KTX if available (same directory, _skybox.ktx)
+    std::string skybox_ktx_path = ibl_ktx_path;
+    auto pos = skybox_ktx_path.rfind("_ibl.ktx");
+    if (pos != std::string::npos) {
+        skybox_ktx_path.replace(pos, 8, "_skybox.ktx");
+        std::ifstream sky_file(skybox_ktx_path, std::ios::binary | std::ios::ate);
+        if (sky_file.is_open()) {
+            auto sky_size = sky_file.tellg();
+            sky_file.seekg(0, std::ios::beg);
+            std::vector<uint8_t> sky_buffer(static_cast<size_t>(sky_size));
+            if (sky_file.read(reinterpret_cast<char*>(sky_buffer.data()), sky_size)) {
+                auto* sky_bundle = new image::Ktx1Bundle(sky_buffer.data(), static_cast<uint32_t>(sky_buffer.size()));
+                auto* sky_texture = ktxreader::Ktx1Reader::createTexture(engine, sky_bundle, false);
+                if (sky_texture) {
+                    skybox_ = filament::Skybox::Builder()
+                        .environment(sky_texture)
+                        .build(*engine);
+                    if (skybox_ && scene) {
+                        scene->setSkybox(skybox_);
+                    }
+                }
+            }
+        }
+    }
+
+    // If no skybox loaded, use transparent black
+    if (!skybox_) {
+        skybox_ = filament::Skybox::Builder()
+            .color({0.0f, 0.0f, 0.0f, 0.0f})
+            .build(*engine);
+        if (skybox_ && scene) {
+            scene->setSkybox(skybox_);
+        }
+    }
+
+    return true;
 }
 
 bool SceneManager::setupDefaultIBL(float intensity) {
     if (!renderer_) return false;
+
+    // Try loading KTX IBL from ibl_directory_ first
+    if (!ibl_directory_.empty()) {
+        std::string ibl_path = ibl_directory_ + "/default/default_ibl.ktx";
+        if (setupIBL(ibl_path, intensity)) {
+            return true;
+        }
+    }
 
     auto* engine = renderer_->filamentEngine();
     auto* scene = renderer_->filamentScene();
@@ -259,9 +386,21 @@ bool SceneManager::setupDefaultIBL(float intensity) {
         skybox_ = nullptr;
     }
 
-    // Create a simple procedural IBL (white environment)
-    // In production, this would load a KTX cubemap
+    // Fallback: SH-only IBL from the studio HDR (no reflections cubemap)
+    filament::math::float3 sh_bands[9] = {
+        { 0.8127f,  0.8345f,  0.9214f},
+        { 0.0378f,  0.0416f,  0.0518f},
+        {-0.0380f, -0.0578f, -0.0660f},
+        {-0.2837f, -0.2927f, -0.3268f},
+        {-0.2955f, -0.3032f, -0.3356f},
+        {-0.0049f, -0.0129f, -0.0079f},
+        { 0.0390f,  0.0415f,  0.0477f},
+        {-0.0230f, -0.0073f, -0.0377f},
+        { 0.1403f,  0.1439f,  0.1594f},
+    };
+
     indirect_light_ = filament::IndirectLight::Builder()
+        .irradiance(3, sh_bands)
         .intensity(intensity)
         .build(*engine);
 
@@ -269,7 +408,6 @@ bool SceneManager::setupDefaultIBL(float intensity) {
         scene->setIndirectLight(indirect_light_);
     }
 
-    // Transparent skybox for badge rendering (badges float on UI)
     skybox_ = filament::Skybox::Builder()
         .color({0.0f, 0.0f, 0.0f, 0.0f})
         .build(*engine);

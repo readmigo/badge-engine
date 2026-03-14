@@ -52,7 +52,9 @@ int main(int argc, char* argv[]) {
 
     // Parse arguments
     for (int i = 1; i < argc; i++) {
-        if (argv[i][0] != '-') {
+        if (strcmp(argv[i], "--presets") == 0 && i + 1 < argc) {
+            presets_path = argv[++i];
+        } else if (argv[i][0] != '-') {
             badge_path = argv[i];
         }
     }
@@ -67,13 +69,6 @@ int main(int argc, char* argv[]) {
         printf("  F           — Toggle fullscreen render mode\n");
         printf("  ESC         — Quit\n");
         return 1;
-    }
-
-    // Find presets directory (default: relative to executable)
-    for (int i = 1; i < argc - 1; i++) {
-        if (strcmp(argv[i], "--presets") == 0) {
-            presets_path = argv[i + 1];
-        }
     }
 
     // Initialize SDL

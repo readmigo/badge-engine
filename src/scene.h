@@ -10,6 +10,7 @@ class Engine;
 class Scene;
 class IndirectLight;
 class Skybox;
+class Texture;
 class MaterialInstance;
 namespace gltfio {
 class AssetLoader;
@@ -47,8 +48,9 @@ public:
 
     void applyMaterial(const MaterialParams& params);
 
-    bool setupIBL(const std::string& ibl_path, float intensity);
+    bool setupIBL(const std::string& ibl_ktx_path, float intensity);
     bool setupDefaultIBL(float intensity);
+    void setIBLDirectory(const std::string& dir) { ibl_directory_ = dir; }
 
     void addDirectionalLight(const std::array<float, 3>& direction,
                              const std::array<float, 3>& color,
@@ -70,6 +72,8 @@ private:
 
     filament::IndirectLight* indirect_light_ = nullptr;
     filament::Skybox* skybox_ = nullptr;
+    filament::Texture* ibl_texture_ = nullptr;
+    std::string ibl_directory_;
 
     utils::Entity* light_entities_ = nullptr;
     int light_count_ = 0;

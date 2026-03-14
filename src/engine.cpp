@@ -65,6 +65,11 @@ int Engine::setSurface(void* native_surface, uint32_t width, uint32_t height) {
         return -1;
     }
 
+    // Set IBL resources directory
+    if (config_.presets_path) {
+        scene_->setIBLDirectory(std::string(config_.presets_path) + "/ibl");
+    }
+
     // Setup lighting
     setupLighting();
 #endif
@@ -114,11 +119,9 @@ int Engine::loadBadge(const std::string& badge_path) {
         return -1;
     }
 
-    // Apply material preset based on rarity
-    auto rarity_preset = material_system_->getPreset(manifest.rarity);
-    if (rarity_preset.has_value()) {
-        scene_->applyMaterial(*rarity_preset);
-    }
+    // Note: GLB models loaded via gltfio already have PBR materials embedded.
+    // Material preset override (applyMaterial) requires matching ubershader
+    // parameter names and is deferred to a future iteration.
 #endif
 
     // Load ceremony preset if available
