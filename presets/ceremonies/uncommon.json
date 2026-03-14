@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "total_duration_ms": 4000,
+  "phases": [
+    {"name": "anticipation", "start_ms": 0,    "end_ms": 900},
+    {"name": "reveal",       "start_ms": 900,  "end_ms": 1800},
+    {"name": "presentation", "start_ms": 1800, "end_ms": 3200},
+    {"name": "settle",       "start_ms": 3200, "end_ms": 4000}
+  ],
+  "tracks": {
+    "transform": [
+      {"time_ms": 0,    "scale": [0.0, 0.0, 0.0], "easing": "easeOutBack"},
+      {"time_ms": 1800, "scale": [1.1, 1.1, 1.1], "easing": "easeInOut"},
+      {"time_ms": 3200, "scale": [1.0, 1.0, 1.0], "rotation_y": 360}
+    ],
+    "material": [
+      {"time_ms": 0,    "emissive_intensity": 0.0},
+      {"time_ms": 900,  "emissive_intensity": 2.5, "easing": "easeOut"},
+      {"time_ms": 3200, "emissive_intensity": 1.0}
+    ],
+    "callbacks": [
+      {"time_ms": 0,    "type": "haptic", "style": "light"},
+      {"time_ms": 900,  "type": "haptic", "style": "medium"},
+      {"time_ms": 1800, "type": "haptic", "style": "heavy"},
+      {"time_ms": 1800, "type": "sound",  "asset": "reveal.ogg"},
+      {"time_ms": 3200, "type": "state",  "value": "interactive"}
+    ]
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "total_duration_ms": 6000,
+  "phases": [
+    {"name": "anticipation", "start_ms": 0,    "end_ms": 1500},
+    {"name": "reveal",       "start_ms": 1500, "end_ms": 3000},
+    {"name": "presentation", "start_ms": 3000, "end_ms": 5000},
+    {"name": "settle",       "start_ms": 5000, "end_ms": 6000}
+  ],
+  "tracks": {
+    "transform": [
+      {"time_ms": 0,    "scale": [0.0, 0.0, 0.0], "easing": "easeOutBack"},
+      {"time_ms": 3000, "scale": [1.2, 1.2, 1.2], "easing": "easeInOut"},
+      {"time_ms": 5000, "scale": [1.0, 1.0, 1.0], "rotation_y": 720}
+    ],
+    "material": [
+      {"time_ms": 0,    "emissive_intensity": 0.0},
+      {"time_ms": 1500, "emissive_intensity": 4.0, "easing": "easeOut"},
+      {"time_ms": 5000, "emissive_intensity": 1.5}
+    ],
+    "callbacks": [
+      {"time_ms": 0,    "type": "haptic", "style": "light"},
+      {"time_ms": 1500, "type": "haptic", "style": "heavy"},
+      {"time_ms": 3000, "type": "haptic", "style": "heavy"},
+      {"time_ms": 3000, "type": "sound",  "asset": "reveal_epic.ogg"},
+      {"time_ms": 5000, "type": "state",  "value": "interactive"}
+    ]
+  }
+}
