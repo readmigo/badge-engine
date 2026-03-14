@@ -304,23 +304,33 @@ void Engine::setupLighting() {
     scene_->clearLights();
 
     // Setup IBL (environment lighting)
-    float ibl_intensity = lighting_->isIBLEnabled() ? 30000.0f : 10000.0f;
+    float ibl_intensity = lighting_->isIBLEnabled() ? 30000.0f : 30000.0f;
     scene_->setupDefaultIBL(ibl_intensity);
 
-    // Add directional lights if enabled
     if (lighting_->isDirectionalEnabled()) {
+        // Use configured lighting
         auto dir = lighting_->keyLightDirection();
         scene_->addDirectionalLight(
             dir,
-            {1.0f, 0.98f, 0.95f},  // warm white
+            {1.0f, 0.98f, 0.95f},
             lighting_->keyLightIntensity()
         );
-
-        // Fill light (opposite side, dimmer)
         scene_->addDirectionalLight(
             {-dir[0], dir[1], -dir[2]},
-            {0.95f, 0.95f, 1.0f},  // cool white
+            {0.95f, 0.95f, 1.0f},
             lighting_->fillLightIntensity()
+        );
+    } else {
+        // Default lights when no config loaded
+        scene_->addDirectionalLight(
+            {-0.5f, -1.0f, -0.5f},
+            {1.0f, 0.98f, 0.95f},
+            110000.0f
+        );
+        scene_->addDirectionalLight(
+            {0.5f, -0.3f, 0.5f},
+            {0.95f, 0.95f, 1.0f},
+            40000.0f
         );
     }
 #endif
