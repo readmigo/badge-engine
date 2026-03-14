@@ -158,3 +158,8 @@ if(BADGE_ENGINE_BUILD_TESTS)
     enable_testing()
     add_subdirectory(tests)
 endif()
+
+# --- Examples ---
+if(BADGE_ENGINE_BUILD_EXAMPLES AND BADGE_ENGINE_USE_FILAMENT)
+    add_subdirectory(examples/hello_badge)
+endif()

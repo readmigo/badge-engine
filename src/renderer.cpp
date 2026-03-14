@@ -7,6 +7,7 @@
 #include <filament/Scene.h>
 #include <filament/Camera.h>
 #include <filament/ColorGrading.h>
+#include <filament/ToneMapper.h>
 #include <filament/Viewport.h>
 #include <utils/EntityManager.h>
 
@@ -158,8 +159,9 @@ void Renderer::setupPostProcessing() {
         if (color_grading_) {
             engine_->destroy(color_grading_);
         }
+        filament::ACESLegacyToneMapper aces;
         color_grading_ = filament::ColorGrading::Builder()
-            .toneMapping(filament::ColorGrading::ToneMapping::ACES_LEGACY)
+            .toneMapper(&aces)
             .build(*engine_);
         view_->setColorGrading(color_grading_);
     } else {
