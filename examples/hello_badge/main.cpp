@@ -158,6 +158,7 @@ int main(int argc, char* argv[]) {
     bool auto_rotate = true;
     float auto_rotate_angle = 0.0f;
     const float AUTO_ROTATE_SPEED = 0.8f; // radians per second
+    float model_scale = 1.0f;
     Uint32 last_ticks = SDL_GetTicks();
 
     printf("Rendering... (Press ESC to quit, Space for ceremony, R to toggle auto-rotate)\n");
@@ -176,6 +177,12 @@ int main(int argc, char* argv[]) {
                     } else if (event.key.keysym.sym == SDLK_SPACE) {
                         printf("Playing ceremony...\n");
                         badge_engine_play_ceremony(engine, BADGE_CEREMONY_UNLOCK);
+                    } else if (event.key.keysym.sym == SDLK_EQUALS || event.key.keysym.sym == SDLK_PLUS) {
+                        model_scale *= 1.2f;
+                        printf("Scale: %.2f\n", model_scale);
+                    } else if (event.key.keysym.sym == SDLK_MINUS) {
+                        model_scale /= 1.2f;
+                        printf("Scale: %.2f\n", model_scale);
                     } else if (event.key.keysym.sym == SDLK_r) {
                         auto_rotate = !auto_rotate;
                         printf("Auto-rotate: %s\n", auto_rotate ? "ON" : "OFF");
@@ -290,7 +297,7 @@ int main(int argc, char* argv[]) {
             rx += 0.15f * sinf(t * 1.1f + 2.0f);                 // XY diagonal
             rz += 0.1f * cosf(t * 0.9f + 0.5f);                  // ZX diagonal
 
-            badge_engine_set_orientation(engine, rx, ry, rz, 1.0f);
+            badge_engine_set_orientation(engine, rx, ry, rz, model_scale);
 
             // Print rotation info every ~1 second
             static int frame_count = 0;
