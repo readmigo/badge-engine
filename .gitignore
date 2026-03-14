@@ -1,0 +1,14 @@
+build/
+cmake-build-*/
+.cache/
+.vscode/
+.idea/
+.claude/
+*.o
+*.so
+*.dylib
+*.a
+third_party/filament/
+third_party/nlohmann_json/
+third_party/minizip/
+third_party/ktx/
