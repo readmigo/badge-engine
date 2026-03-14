@@ -13,3 +13,4 @@ third_party/nlohmann_json/
 third_party/minizip/
 third_party/ktx/
 resources/ibl/
+build-example/
