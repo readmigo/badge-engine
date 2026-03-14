@@ -141,13 +141,13 @@ void Renderer::setupPostProcessing() {
         // Fullscreen: bloom, vignette, FXAA, VSM shadows
         view_->setAntiAliasing(filament::View::AntiAliasing::FXAA);
         view_->setBloomOptions({
-            .strength = 0.15f,
+            .strength = 0.10f,
             .enabled = true
         });
         view_->setVignetteOptions({
             .midPoint = 0.5f,
             .roundness = 0.5f,
-            .feather = 0.5f,
+            .feather = 0.3f,
             .enabled = true
         });
         view_->setShadowingEnabled(true);
@@ -184,10 +184,10 @@ void Renderer::setupCamera() {
 
     float aspect = (height_ > 0) ? static_cast<float>(width_) / static_cast<float>(height_) : 1.0f;
 
-    // Perspective camera: 45° FOV, positioned to frame a badge (~2 units wide)
-    camera_->setProjection(45.0f, aspect, 0.1f, 100.0f);
+    // Perspective camera: 35° FOV, positioned to frame a badge with detail
+    camera_->setProjection(35.0f, aspect, 0.1f, 100.0f);
     camera_->lookAt(
-        {0.0f, 0.0f, 4.0f},   // eye: 4 units back
+        {0.0f, 0.0f, 3.5f},   // eye: 3.5 units back
         {0.0f, 0.0f, 0.0f},   // target: origin
         {0.0f, 1.0f, 0.0f}    // up
     );

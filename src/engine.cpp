@@ -119,9 +119,21 @@ int Engine::loadBadge(const std::string& badge_path) {
         return -1;
     }
 
-    // Note: GLB models loaded via gltfio already have PBR materials embedded.
-    // Material preset override (applyMaterial) requires matching ubershader
-    // parameter names and is deferred to a future iteration.
+    // Apply material preset based on rarity
+    if (!manifest.rarity.empty()) {
+        auto preset = material_system_->getPreset(manifest.rarity);
+        if (preset) {
+            // Apply manifest-level overrides on top of preset
+            MaterialOverrides overrides;
+            if (manifest.base_color) overrides.base_color = manifest.base_color;
+            if (manifest.metalness)  overrides.metalness  = manifest.metalness;
+            if (manifest.roughness)  overrides.roughness  = manifest.roughness;
+            if (manifest.emissive)   overrides.emissive   = manifest.emissive;
+
+            auto final_params = material_system_->applyOverrides(*preset, overrides);
+            scene_->applyMaterial(final_params);
+        }
+    }
 #endif
 
     // Load ceremony preset if available
