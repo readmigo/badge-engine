@@ -260,10 +260,12 @@ void Engine::renderFrame() {
 #ifdef BADGE_ENGINE_HAS_FILAMENT
         // Apply interaction state to scene
         if (scene_ && scene_->hasModel()) {
-            float flip_angle = interaction_->isFlipped() ? 3.14159f : 0.0f;
+            bool flipped = interaction_->isFlipped();
+            float flip_angle = flipped ? 3.14159f : 0.0f;
+            float rx = flipped ? interaction_->rotationX() : -interaction_->rotationX();
             scene_->setTransform(
                 {interaction_->zoom(), interaction_->zoom(), interaction_->zoom()},
-                interaction_->rotationX(),
+                rx,
                 interaction_->rotationY() + flip_angle,
                 0.0f
             );
