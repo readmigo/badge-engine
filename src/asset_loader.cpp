@@ -1,6 +1,13 @@
 #include "asset_loader.h"
 #include <filesystem>
+
+#if !defined(__APPLE__) || !defined(__MACH__) || !TARGET_OS_IPHONE
 #include <cstdlib>
+#endif
+
+#ifdef __APPLE__
+#include <TargetConditionals.h>
+#endif
 
 namespace badge {
 
@@ -15,10 +22,16 @@ std::optional<UnpackResult> AssetLoader::unpack(const std::string& badge_path, c
     fs::create_directories(dest_dir, ec);
     if (ec) return std::nullopt;
 
+#if defined(__APPLE__) && TARGET_OS_IPHONE
+    // On iOS, std::system() is unavailable. The caller (Swift layer) must
+    // pre-extract the .badge zip into dest_dir before calling this function.
+    // We just verify that the extraction has already happened.
+#else
     // Use system unzip command to extract the .badge (zip) file
     std::string cmd = "unzip -o -q \"" + badge_path + "\" -d \"" + dest_dir + "\" 2>/dev/null";
     int ret = std::system(cmd.c_str());
     if (ret != 0) return std::nullopt;
+#endif
 
     // Check that manifest.json exists after extraction
     std::string manifest_path = dest_dir + "/manifest.json";
